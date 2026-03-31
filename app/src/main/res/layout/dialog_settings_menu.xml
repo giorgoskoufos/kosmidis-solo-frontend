@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="#1E1E1E"
@@ -40,7 +41,8 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@android:drawable/ic_menu_myplaces"
-            app:tint="#D1C4E9" android:layout_marginEnd="16dp"/>
+            app:tint="#D1C4E9"
+            android:layout_marginEnd="16dp"/>
 
         <TextView
             android:layout_width="wrap_content"
@@ -58,23 +60,33 @@
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:background="?attr/selectableItemBackground">
+        android:clickable="false"
+        android:focusable="false"
+        android:enabled="false">
+
         <ImageView
+            android:id="@+id/ivMenuItemAppsIcon"
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@android:drawable/ic_menu_agenda"
-            app:tint="#E0E0E0" android:layout_marginEnd="16dp"/>
+            app:tint="#666666"
+            android:layout_marginEnd="16dp"/>
+
         <TextView
+            android:id="@+id/tvMenuItemAppsText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Connected Apps"
-            android:textColor="#AAAAAA"
+            android:text="Connected Apps (@gmail.com only)"
+            android:textColor="#666666"
             android:textSize="16sp"/>
     </LinearLayout>
 
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#424242" android:layout_marginTop="16dp" android:layout_marginBottom="16dp"/>
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#424242"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"/>
 
     <LinearLayout
         android:id="@+id/llMenuItemLogoutPC"
@@ -87,11 +99,14 @@
         android:clickable="true"
         android:focusable="true"
         android:background="?attr/selectableItemBackground">
+
         <ImageView
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@android:drawable/ic_menu_revert"
-            app:tint="#D32F2F" android:layout_marginEnd="16dp"/>
+            app:tint="#D32F2F"
+            android:layout_marginEnd="16dp"/>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

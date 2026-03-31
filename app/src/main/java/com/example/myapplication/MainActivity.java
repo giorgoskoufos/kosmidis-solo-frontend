@@ -5,6 +5,7 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.Gravity;
@@ -25,6 +26,7 @@ import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.navigation.NavigationView;
 
 import org.json.JSONArray;
@@ -45,10 +47,6 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-import android.content.Intent;
-import android.net.Uri;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-
 public class MainActivity extends AppCompatActivity {
 
     private EditText userInput;
@@ -61,10 +59,17 @@ public class MainActivity extends AppCompatActivity {
     private ChatAdapter chatAdapter;
     private List<MessageModel> messageList = new ArrayList<>();
 
+    // Welcome Screen UI elements
+    private LinearLayout welcomeLayout;
+    private View cardGooglePrompt;
+
     private int currentConversationId = 1;
     private int currentUserId = -1;
 
     private Markwon markwon;
+
+    // API Setup
+    private final String BASE_URL = "https://app-kosmidis-solo-backend.xadp6y.easypanel.host";
 
     // Increased timeouts to allow the AI Agent to process external tools without failing
     private final OkHttpClient client = new OkHttpClient.Builder()
@@ -86,6 +91,9 @@ public class MainActivity extends AppCompatActivity {
         toolbar = findViewById(R.id.toolbar);
         navigationView = findViewById(R.id.nav_view);
 
+        welcomeLayout = findViewById(R.id.welcomeLayout);
+        cardGooglePrompt = findViewById(R.id.cardGooglePrompt);
+
         // --- 1. READ USER DATA ---
         SharedPreferences prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE);
         currentUserId = prefs.getInt("userId", -1);
@@ -97,6 +105,10 @@ public class MainActivity extends AppCompatActivity {
             finish();
             return;
         }
+
+        // --- 3. CHECK GOOGLE INTEGRATION STATUS FROM SERVER ---
+        // Fetch the true integration status from the database to keep UI in sync
+        checkGoogleIntegrationStatus();
 
         // --- 2. UPDATE EMAIL IN SIDEBAR ---
         View headerView = navigationView.getHeaderView(0);
@@ -143,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
             String message = userInput.getText().toString();
 
             if (!message.trim().isEmpty()) {
-                // CRITICAL FIX: Lock UI and hide keyboard to prevent ANRs
+                // Lock UI and hide keyboard to prevent ANRs
                 sendButton.setEnabled(false);
                 userInput.setEnabled(false);
                 hideKeyboard();
@@ -156,6 +168,12 @@ public class MainActivity extends AppCompatActivity {
                     sendMessageToServer(message);
                 }, 400);
             }
+        });
+
+        // Click listener for the Google Sync prompt on the empty state screen
+        cardGooglePrompt.setOnClickListener(v -> {
+            IntegrationsGoogle integrationsGoogle = new IntegrationsGoogle();
+            integrationsGoogle.show(getSupportFragmentManager(), "IntegrationsGoogle");
         });
 
         // Fetch user's conversation history
@@ -187,6 +205,13 @@ public class MainActivity extends AppCompatActivity {
                 String isWriteEnabled = uri.getQueryParameter("write");
 
                 if ("success".equals(status)) {
+                    // Update SharedPreferences so the prompt disappears permanently
+                    SharedPreferences prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE);
+                    prefs.edit().putBoolean("isGoogleConnected", true).apply();
+
+                    // Refresh UI to hide the card immediately
+                    updateWelcomeScreenVisibility();
+
                     String accessLevel = "true".equals(isWriteEnabled) ? "Full Access (Read & Write)" : "Read Only Access";
 
                     // Show a modern Material Design dialog confirming the connection
@@ -203,6 +228,66 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // --- HELPER METHODS ---
+    private void checkGoogleIntegrationStatus() {
+        // Build the URL using the current user's ID
+        String url = BASE_URL + "/api/users/" + currentUserId + "/integrations/google/status";
+
+        Request request = new Request.Builder().url(url).get().build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                // Silently fail if there's a network error, the user can try later
+                e.printStackTrace();
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        String responseData = response.body().string();
+                        JSONObject json = new JSONObject(responseData);
+                        boolean isConnected = json.getBoolean("isConnected");
+
+                        // Update the local SharedPreferences with the ultimate truth from the Server
+                        SharedPreferences prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE);
+                        prefs.edit().putBoolean("isGoogleConnected", isConnected).apply();
+
+                        // Refresh the UI to hide the prompt if they are connected
+                        updateWelcomeScreenVisibility();
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+    }
+    /**
+     * Toggles the Welcome Screen and the Google Prompt based on Chat History and User Status
+     */
+    private void updateWelcomeScreenVisibility() {
+        runOnUiThread(() -> {
+            if (messageList.isEmpty()) {
+                welcomeLayout.setVisibility(View.VISIBLE);
+                chatRecyclerView.setVisibility(View.GONE);
+
+                SharedPreferences prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE);
+                String email = prefs.getString("userEmail", "");
+                boolean isGoogleConnected = prefs.getBoolean("isGoogleConnected", false);
+
+                // Show the card ONLY if the user is a Gmail user and hasn't connected yet
+                if (email.toLowerCase().endsWith("@gmail.com") && !isGoogleConnected) {
+                    cardGooglePrompt.setVisibility(View.VISIBLE);
+                } else {
+                    cardGooglePrompt.setVisibility(View.GONE);
+                }
+            } else {
+                welcomeLayout.setVisibility(View.GONE);
+                chatRecyclerView.setVisibility(View.VISIBLE);
+            }
+        });
+    }
 
     /**
      * Hides the software keyboard to prevent the UI from freezing (ANR)
@@ -232,13 +317,16 @@ public class MainActivity extends AppCompatActivity {
             messageList.add(new MessageModel(message, isUser, isTyping));
             chatAdapter.notifyItemInserted(messageList.size() - 1);
             chatRecyclerView.smoothScrollToPosition(messageList.size() - 1);
+
+            // Check if we need to hide the welcome screen since a message was added
+            updateWelcomeScreenVisibility();
         });
     }
 
     // --- API CALLS ---
 
     private void fetchConversations() {
-        String url = "https://app-kosmidis-solo-backend.xadp6y.easypanel.host/api/conversations/" + currentUserId;
+        String url = BASE_URL + "/api/conversations/" + currentUserId;
         Request request = new Request.Builder().url(url).get().build();
 
         client.newCall(request).enqueue(new Callback() {
@@ -285,7 +373,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void fetchMessages(int conversationId) {
-        String url = "https://app-kosmidis-solo-backend.xadp6y.easypanel.host/api/messages/" + conversationId;
+        String url = BASE_URL + "/api/messages/" + conversationId;
         Request request = new Request.Builder().url(url).get().build();
 
         client.newCall(request).enqueue(new Callback() {
@@ -318,6 +406,9 @@ public class MainActivity extends AppCompatActivity {
 
                             chatAdapter.notifyDataSetChanged();
 
+                            // Check visibility after loading messages
+                            updateWelcomeScreenVisibility();
+
                             if (!messageList.isEmpty()) {
                                 chatRecyclerView.scrollToPosition(messageList.size() - 1);
                             }
@@ -331,12 +422,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void createNewConversation() {
-        String url = "https://app-kosmidis-solo-backend.xadp6y.easypanel.host/api/conversations";
+        String url = BASE_URL + "/api/conversations";
 
         try {
             JSONObject jsonBody = new JSONObject();
             jsonBody.put("userId", currentUserId);
-            jsonBody.put("title", "Νέα Συνομιλία");
+            jsonBody.put("title", "New Conversation");
 
             RequestBody body = RequestBody.create(jsonBody.toString(), JSON);
             Request request = new Request.Builder().url(url).post(body).build();
@@ -360,6 +451,9 @@ public class MainActivity extends AppCompatActivity {
                                 messageList.clear();
                                 chatAdapter.notifyDataSetChanged();
                                 fetchConversations();
+
+                                // Show welcome screen for the new empty chat
+                                updateWelcomeScreenVisibility();
                             });
                         } catch (JSONException e) {
                             e.printStackTrace();
@@ -373,7 +467,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void sendMessageToServer(String messageText) {
-        String url = "https://app-kosmidis-solo-backend.xadp6y.easypanel.host/api/chat";
+        String url = BASE_URL + "/api/chat";
 
         try {
             JSONObject jsonBody = new JSONObject();
@@ -525,4 +619,5 @@ public class MainActivity extends AppCompatActivity {
             animator.start();
         }
     }
+
 }

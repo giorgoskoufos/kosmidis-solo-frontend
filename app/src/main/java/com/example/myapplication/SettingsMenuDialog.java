@@ -3,11 +3,15 @@ package com.example.myapplication;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -20,42 +24,64 @@ public class SettingsMenuDialog extends BottomSheetDialogFragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.from(requireContext()).inflate(R.layout.dialog_settings_menu, container, false);
+        View view = inflater.inflate(R.layout.dialog_settings_menu, container, false);
 
         LinearLayout llMenuItemProfile = view.findViewById(R.id.llMenuItemProfilePC);
         LinearLayout llMenuItemLogout = view.findViewById(R.id.llMenuItemLogoutPC);
+        LinearLayout llMenuItemApps = view.findViewById(R.id.llMenuItemAppsPC);
 
-        // 1. Εξατομίκευση Προφίλ
+        ImageView ivMenuItemAppsIcon = view.findViewById(R.id.ivMenuItemAppsIcon);
+        TextView tvMenuItemAppsText = view.findViewById(R.id.tvMenuItemAppsText);
+
+        SharedPreferences preferences = requireContext().getSharedPreferences("AppPrefs", Context.MODE_PRIVATE);
+
+        // 1. Profile Customization
         llMenuItemProfile.setOnClickListener(v -> {
-            dismiss(); // Κλείνει το Bottom Sheet
-            // Ανοίγει τη νέα μετονομασμένη Activity
+            dismiss(); // Close the Bottom Sheet
+            // Open the renamed Activity
             startActivity(new Intent(requireContext(), ProfileCustomisationActivity.class));
         });
 
-        // 2. Αποσύνδεση (Logout): Move logic from MainActivity to here
+        // 2. Logout
         llMenuItemLogout.setOnClickListener(v -> {
             dismiss();
-            SharedPreferences preferences = requireContext().getSharedPreferences("AppPrefs", Context.MODE_PRIVATE);
-            preferences.edit().clear().apply(); // Σβήνουμε τα αποθηκευμένα στοιχεία
+            preferences.edit().clear().apply(); // Clear saved user data
 
-            // Γυρνάμε στο LoginActivity
+            // Return to LoginActivity and clear the back stack
             Intent intent = new Intent(requireContext(), LoginActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK); // Καθαρίζει το stack
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
         });
 
-        //3. Google Integration
-        LinearLayout llMenuItemApps = view.findViewById(R.id.llMenuItemAppsPC);
+        // 3. Google Integration (Gmail Check Logic)
+        String userEmail = preferences.getString("userEmail", "");
 
-        llMenuItemApps.setOnClickListener(v -> {
-            dismiss(); // Close the main settings menu
+        if (userEmail != null && userEmail.toLowerCase().endsWith("@gmail.com")) {
+            // User has a Gmail account: Unlock the option
+            llMenuItemApps.setClickable(true);
+            llMenuItemApps.setFocusable(true);
+            llMenuItemApps.setEnabled(true);
 
-            // Open the Google-specific integrations sheet
-            IntegrationsGoogle integrationsGoogle = new IntegrationsGoogle();
-            integrationsGoogle.show(getParentFragmentManager(), "IntegrationsGoogle");
-        });
+            // Restore the ripple effect for touch feedback
+            TypedValue outValue = new TypedValue();
+            requireContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground, outValue, true);
+            llMenuItemApps.setBackgroundResource(outValue.resourceId);
+
+            // Restore colors from the Dark Theme (Icon: Hint, Text: Light Gray)
+            ivMenuItemAppsIcon.setColorFilter(Color.parseColor("#D1C4E9"));
+            tvMenuItemAppsText.setTextColor(Color.parseColor("#E0E0E0"));
+            tvMenuItemAppsText.setText("Connected Apps");
+
+            // Add the OnClickListener
+            llMenuItemApps.setOnClickListener(v -> {
+                dismiss(); // Close the main settings menu
+
+                // Open the Google-specific integrations sheet
+                IntegrationsGoogle integrationsGoogle = new IntegrationsGoogle();
+                integrationsGoogle.show(getParentFragmentManager(), "IntegrationsGoogle");
+            });
+        }
 
         return view;
     }
 }
-
