@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group>
+        <item
+            android:id="@+id/nav_new_chat"
+            android:icon="@android:drawable/ic_menu_add"
+            android:title="New Chat" />
+    </group>
+
+    <item
+        android:id="@+id/nav_history_parent"
+        android:title="Conversations">
+        <menu>
+            <group
+                android:id="@+id/group_history"
+                android:checkableBehavior="single" />
+        </menu>
+    </item>
+
+    <item android:title="Options">
+        <menu>
+            <item
+                android:id="@+id/nav_settings"
+                android:icon="@android:drawable/ic_menu_preferences"
+                android:title="Settings and Help" />
+
+            <item
+                android:id="@+id/nav_logout"
+                android:icon="@android:drawable/ic_menu_revert"
+                android:title="Logout" />
+        </menu>
+    </item>
+
+</menu>

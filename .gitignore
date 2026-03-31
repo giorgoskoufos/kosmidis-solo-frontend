@@ -1,0 +1,33 @@
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Local config
+local.properties
+gradle.properties
+
+# Android Studio
+.idea/
+*.iml
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+*.log
+
+# Captures & generated
+captures/
+.externalNativeBuild/
+.cxx/
+
+# APK / outputs
+*.apk
+*.ap_
+*.dex
+*.class
+*.jar
+
+# Navigation / generated code
+**/generated/
+**/intermediates/
